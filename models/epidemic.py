@@ -34,13 +34,41 @@ class SISGraph():
         local_coupling = k * jnp.exp(-d/lam)
         return local_coupling
     
-    def graphon(self, k=1.0, lam=0.5):
+    def distance_based_graphon(self, k=1.0, lam=0.5):
         """Build contact network"""
         self.A = self.R(self.D, k, lam)
         return self.A
+    
+    def random_graphon(self, p=0.1, weight_scale=1.0, sigma=0.1, mu=0.5):
+        """
+        Build a random network adjacency matrix.
+        
+        Parameters
+        ----------
+        p : float
+            Probability of an edge between any two nodes.
+        weight_scale : float
+            Maximum weight for edges (random uniform in [0, weight_scale]).
+        """
+        n = self.n
+        key = jr.PRNGKey(42)
+        
+        # Generate upper triangular random edges
+        upper_tri = jr.normal(key, shape=(n, n)) * sigma + mu
+        upper_tri = jnp.clip(upper_tri, 0.0, 1.0) * weight_scale
+
+        # Zero diagonal
+        upper_tri = jnp.triu(upper_tri, k=1)
+        
+        # Make symmetric adjacency (undirected network)
+        A = jnp.triu(upper_tri, k=1)
+        A = A + A.T
+        
+        self.A = A
+        return self.A
+
         
     def simulate(self, T=20.0, dt=0.1):
-        """Simulate using diffrax"""
         def dynamics(t, u, args):
             """
             Network SIS dynamics
@@ -61,7 +89,9 @@ class SISGraph():
         )
         return sol
     
-    def plot_graph(self, x, A, title="Kuramoto Graph"):
+    def plot_graph(self, title="Kuramoto Graph"):
+        x = self.x
+        A=self.A
         N = len(x)
         pos = jnp.stack([jnp.cos(x), jnp.sin(x)], axis=1)
 
@@ -82,9 +112,9 @@ class SISGraph():
         ax.set_title(title)
         plt.show()
 
-    def plot_graphon(self, A, title="Graphon adjacency matrix"):
+    def plot_graphon(self, title="Graphon adjacency matrix"):
         plt.figure(figsize=(6,6))
-        plt.imshow(1-A, cmap='gray', origin='lower')
+        plt.imshow(1-self.A, cmap='gray', origin='lower')
         plt.colorbar(label='Coupling weight')
         plt.title(title)
         plt.xlabel('j')
