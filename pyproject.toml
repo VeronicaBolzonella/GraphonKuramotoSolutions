@@ -8,5 +8,6 @@ dependencies = [
     "diffrax>=0.7.0",
     "jax>=0.8.0",
     "matplotlib>=3.10.7",
+    "network>=0.1",
     "notebook>=7.4.7",
 ]

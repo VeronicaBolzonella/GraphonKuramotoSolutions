@@ -126,8 +126,10 @@ class KuramotoGraph():
         return (m * x / (2*jnp.pi)) % 1.0
 
 
-    def plot_graph(self, x, A, title="Kuramoto Graph"):
-        N = len(x)
+    def plot_graph(self, x, A):
+        N = self.n
+
+        title=f"Kuramoto Graph, N={self.n}"
         pos = jnp.stack([jnp.cos(x), jnp.sin(x)], axis=1)
 
         fig, ax = plt.subplots(figsize=(6,6))
@@ -138,20 +140,18 @@ class KuramotoGraph():
                 weight = A[i,j]
                 if weight > 1e-3:
                     ax.plot([pos[i,0], pos[j,0]], [pos[i,1], pos[j,1]],
-                            color='blue', alpha=min(1, float(weight)), linewidth=1)
+                            color='blue', alpha=min(1, float(weight)+0.1), linewidth=1)
 
         ax.scatter(pos[:,0], pos[:,1], color='red', s=50)
-        
-        ax.set_xticks([])
-        ax.set_yticks([])
+
         ax.set_title(title)
         plt.show()
 
-    def plot_graphon(self, A, title="Graphon adjacency matrix"):
+    def plot_graphon(self, A):
         plt.figure(figsize=(6,6))
-        plt.imshow(1-A, cmap='gray', origin='lower')
+        plt.imshow(A, cmap='gray', origin='lower', extent=[0, 1, 0, 1])
         plt.colorbar(label='Coupling weight')
-        plt.title(title)
+        plt.title("Graphon adjacency matrix")
         plt.xlabel('j')
         plt.ylabel('i')
         plt.show()

@@ -39,7 +39,7 @@ class SISGraph():
         self.A = self.R(self.D, k, lam)
         return self.A
     
-    def random_graphon(self, p=0.1, weight_scale=1.0, sigma=0.1, mu=0.5):
+    def random_graphon(self, key, p=0.1, weight_scale=1.0, sigma=0.1, mu=0.5):
         """
         Build a random network adjacency matrix.
         
@@ -51,7 +51,6 @@ class SISGraph():
             Maximum weight for edges (random uniform in [0, weight_scale]).
         """
         n = self.n
-        key = jr.PRNGKey(42)
         
         # Generate upper triangular random edges
         upper_tri = jr.normal(key, shape=(n, n)) * sigma + mu
