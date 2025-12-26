@@ -1,13 +1,17 @@
 import matplotlib.pyplot as plt
+from typing import Optional
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-from typing import Optional
-
 import diffrax
 
+"""
+This file contains the implementation of the graph and numerical simulation of a Kuramoto model.
+Note that this is not discussed in the final paper, but was implemented for exploratory purpuses.
+"""
+
 class KuramotoGraph():
-    def __init__(self, n, u0=None):
+    def __init__(self, n:int=200, u0=None):
         if n < 3:
             raise ValueError("N must be at least 3 for a ring.")
         self.n = n
@@ -30,30 +34,38 @@ class KuramotoGraph():
         D_total = jnp.abs(D_row - D_col)
         self.D = jnp.minimum(D_total, 2*jnp.pi-D_total)
 
-    def R(self, d, k, lam, alpha=0.0):
+    def R(self, d:float, k:float, lam:float, alpha=0.0):
+        # graphon with exponential coupling strength
         local_coupling = k * jnp.exp(-d/lam)
         global_coupling = alpha * k * (1 - jnp.exp(-d/lam))
         return local_coupling + global_coupling
     
 
-    def distance_based_graphon(self, k=1.0, lam=0.5):
-        """Build contact network"""
+    def distance_based_graphon(self, k:float=1.0, lam:float=0.5):
+        """Builds network based on distance around ring"""
         self.A = self.R(self.D, k, lam)
         return self.A
     
-    def random_graphon(self, p=0.1, weight_scale=1.0, sigma=0.1, mu=0.5):
+    def random_graphon(self, 
+                       key:jr.PRNGKey, 
+                       p:float=0.1, 
+                       weight_scale:float=1.0, 
+                       sigma:float=0.1, 
+                       mu:float=0.5):
         """
-        Build a random network adjacency matrix.
-        
-        Parameters
-        ----------
-        p : float
-            Probability of an edge between any two nodes.
-        weight_scale : float
-            Maximum weight for edges (random uniform in [0, weight_scale]).
+        Builds a random network adjacency matrix.
+
+        Args:
+            key (jr.PRNGkey): seed for reproducibility
+            p (float, optional): Probability of an edge between any two nodes. Defaults to 0.1.
+            weight_scale (float, optional): Maximum weight for edges. Defaults to 1.0.
+            sigma (float, optional): _description_. Defaults to 0.1.
+            mu (float, optional): _description_. Defaults to 0.5.
+
+        Returns:
+            A (Array): [N, N] adjacency matrix
         """
         n = self.n
-        key = jr.PRNGKey(42)
         
         # Generate upper triangular random edges
         upper_tri = jr.normal(key, shape=(n, n)) * sigma + mu
@@ -70,17 +82,17 @@ class KuramotoGraph():
         return self.A
 
 
-    def update_phase(self, dt):
+    def update_phase(self, dt:float=0.01):
         phase_diffs = self.u[None, :] - self.u[:, None]
         S = jnp.sin(2 * jnp.pi * phase_diffs)
         du_dt = (self.A * S).sum(axis=1) / self.n
         self.u = jnp.mod(self.u + dt * du_dt, 1.0)
 
     def kuramoto_motion(self,
-            N: Optional[int] = None,
-            T: float = 50.0, 
-            dt: float = 1e-2,
-            u0: float = 0.0) -> diffrax.Solution:
+            N:Optional[int]=None,
+            T:float=50.0, 
+            dt:float=1e-2,
+            u0:float=0.0) -> diffrax.Solution:
         dtype = jnp.float32
 
         u0 = jnp.atleast_1d(u0).astype(dtype)
@@ -115,9 +127,9 @@ class KuramotoGraph():
         return sol
     
     def simulate(self,
-                N: Optional[int] = None,
-                T: float = 50.0, 
-                dt: float = 1e-2):
+                N:Optional[int]=None,
+                T:float = 50.0, 
+                dt:float = 1e-2):
         return self.kuramoto_motion(N=N, T=T, dt=dt, u0=self.u)
     
     def m_twisted_state(self, m=1):

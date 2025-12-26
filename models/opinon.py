@@ -4,8 +4,14 @@ import jax.random as jr
 import diffrax
 import numpy as np
 
+"""
+This file contains the implementation of the graph and numerical simulation of the Opinion Dynamics Models discussed in 
+the final paper. Visualizations of the results can be found in the opinion_visualization.ipynb notebook.
+"""
+
+
 class OpinionGraph():
-    def __init__(self, n, alpha=5.0, gamma=1.0, u0=None):
+    def __init__(self, n:int=200, alpha:float=5.0, gamma:float=1.0, u0=None):
         self.n = n
         self.alpha = alpha # peer pressure strength
         self.gamma_base = gamma # external pull strength
@@ -34,15 +40,45 @@ class OpinionGraph():
         D_total = jnp.abs(D_row - D_col)
         self.D = jnp.minimum(D_total, 1.0 - D_total)
         
-    def R(self, d, k, lam):
-        """Exponential kernel graphon"""
+    def R(self, d:float, k:float, lam:float):
+        """Exponential graphon"""
         local_coupling = k * jnp.exp(-d/lam)
         return local_coupling
     
-    def distance_based_graphon(self, k=1.0, lam=0.1):
+    def distance_based_graphon(self, k:float=1.0, lam:float=0.1):
         """Build contact network based on distance"""
         self.A = self.R(self.D, k, lam)
         return self.A
+    
+    def random_graphon(self, 
+                       key:jr.PRNGKey, 
+                       weight_scale:float=1.0, 
+                       sigma:float=0.1, 
+                       mu:float=0.5):
+        """
+        Builds a random network adjacency matrix.
+
+        Args:
+            key (jr.PRNGkey): seed for reproducibility
+            p (float, optional): Probability of an edge between any two nodes. Defaults to 0.1.
+            weight_scale (float, optional): Maximum weight for edges. Defaults to 1.0.
+            sigma (float, optional): _description_. Defaults to 0.1.
+            mu (float, optional): _description_. Defaults to 0.5.
+
+        Returns:
+            A (Array): [N, N] adjacency matrix
+        """
+        n = self.n
+        # non symmetric adjacency matrix
+        A = jr.normal(key, shape=(n, n)) * sigma + mu
+        A = jnp.clip(A, 0.0, 1.0) * weight_scale
+        
+        # Zero diagonal (no self-loops)
+        A = A.at[jnp.diag_indices(n)].set(0.0)
+        
+        self.A = A
+        return self.A
+
 
     def set_external_field(self, O_func=None, Gamma_func=None):
         """
@@ -65,7 +101,7 @@ class OpinionGraph():
 
     def solve(self, T=10.0, dt=0.01, phi_type='linear', epsilon=0.2):
         """
-        Simulate dynamics in a time frame T.
+        Simulate dynamics in during time T.
 
         Args:
             T (float, optional): end time. Defaults to 10.0.
@@ -76,8 +112,7 @@ class OpinionGraph():
         def dynamics(t, u, args):
             """
             Opinion Dynamics:
-            du_i/dt = alpha  * Sum A_ij * phi(|u_j-u_i|) * (u_j - u_i)
-                      + Gamma_i * (O_ext_i - u_i)
+            du_i/dt = alpha  * Sum A_ij * phi(|u_j-u_i|) * (u_j - u_i) + Gamma_i * (O_ext_i - u_i)
             """
             N = self.n
             
@@ -102,17 +137,28 @@ class OpinionGraph():
         )
         return sol
 
-    def plot_graphon(self, title="Graphon Adjacency"):
-        plt.figure(figsize=(5,5))
-        plt.imshow(self.A, cmap='gray', origin='lower')
-        plt.colorbar(label='Weight')
-        plt.title(title)
-        plt.xlabel('Node j')
-        plt.ylabel('Node i')
+    def plot_graphon(self):
+        """Plots the graphon"""
+        plt.figure(figsize=(10,10))
+        plt.imshow(self.A, cmap='gray_r', origin='lower', extent=[0, 1, 0, 1])
+        plt.colorbar(label='Coupling weight')
+        plt.title("Graphon")
+        plt.xlabel('j')
+        plt.ylabel('i')
+        plt.show()
+
+    def plot_adj(self):
+        """Plots the adjacency matrix"""
+        plt.figure(figsize=(10,10))
+        plt.imshow(self.A, cmap='gray_r', origin='lower')
+        plt.colorbar(label='Coupling weight')
+        plt.title("Adjacency matrix")
+        plt.xlabel('j')
+        plt.ylabel('i')
         plt.show()
 
     def plot_final_state(self, sol):
-        """Plots the spatial configuration of opinions at the final time"""
+        """Plots the opinions at the final time"""
         u_final = sol.ys[-1]
 
         x_plot = np.array(self.x)
@@ -122,7 +168,6 @@ class OpinionGraph():
         if O_ext_plot.ndim == 0:
             O_ext_plot = np.full_like(x_plot, O_ext_plot)
 
-        
         plt.figure(figsize=(10, 6))
         
         # plot individuals
@@ -145,7 +190,7 @@ class OpinionGraph():
         ts = sol.ts
         
         plt.figure(figsize=(10, 6))
-        step = max(1, self.n // 50) # avoid clutter for large N
+        step = max(1, self.n // 50) # dont plot all if N very large
         plt.plot(ts, ys[:, ::step], alpha=0.5)
         
         plt.xlabel('Time')

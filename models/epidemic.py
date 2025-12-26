@@ -3,8 +3,13 @@ import jax.numpy as jnp
 import jax.random as jr
 import diffrax
 
+"""
+This file contains the implementation of the graph and numerical simulation of a SIS model.
+Note that this is not discussed in the final paper, but was implemented for exploratory purpuses.
+"""
+
 class SISGraph():
-    def __init__(self, n, beta=2.0, gamma=1.0, u0=None):
+    def __init__(self, n:int=200, beta:float=2.0, gamma:float=1.0, u0=None):
         self.n = n
         self.beta = beta    # infection rate
         self.gamma = gamma  # recovery rate
@@ -30,7 +35,8 @@ class SISGraph():
         D_total = jnp.abs(D_row - D_col)
         self.D = jnp.minimum(D_total, 2*jnp.pi - D_total)
         
-    def R(self, d, k, lam):
+    def R(self, d:float, k:float, lam:float):
+        # Exponential coupling graphon
         local_coupling = k * jnp.exp(-d/lam)
         return local_coupling
     
@@ -39,16 +45,24 @@ class SISGraph():
         self.A = self.R(self.D, k, lam)
         return self.A
     
-    def random_graphon(self, key, p=0.1, weight_scale=1.0, sigma=0.1, mu=0.5):
+    def random_graphon(self, 
+                       key:jr.PRNGKey, 
+                       p:float=0.1, 
+                       weight_scale:float=1.0, 
+                       sigma:float=0.1, 
+                       mu:float=0.5):
         """
         Build a random network adjacency matrix.
-        
-        Parameters
-        ----------
-        p : float
-            Probability of an edge between any two nodes.
-        weight_scale : float
-            Maximum weight for edges (random uniform in [0, weight_scale]).
+
+        Args:
+            key (jr.PRNGkey): seed for reproducibility
+            p (float, optional): Probability of an edge between any two nodes. Defaults to 0.1.
+            weight_scale (float, optional): Maximum weight for edges. Defaults to 1.0.
+            sigma (float, optional): _description_. Defaults to 0.1.
+            mu (float, optional): _description_. Defaults to 0.5.
+
+        Returns:
+            A (Array): [N, N] adjacency matrix
         """
         n = self.n
         
@@ -67,7 +81,7 @@ class SISGraph():
         return self.A
 
         
-    def simulate(self, T=20.0, dt=0.1):
+    def simulate(self, T:float=20.0, dt:float=0.01):
         def dynamics(t, u, args):
             """
             Network SIS dynamics
@@ -88,7 +102,8 @@ class SISGraph():
         )
         return sol
     
-    def plot_graph(self, title="Kuramoto Graph"):
+    def plot_graph(self):
+        # plots a visualization of the discrete graph 
         x = self.x
         A=self.A
         N = len(x)
@@ -108,14 +123,16 @@ class SISGraph():
         
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.set_title(title)
+        ax.set_title("SIS Graph")
         plt.show()
 
-    def plot_graphon(self, title="Graphon adjacency matrix"):
+    def plot_graphon(self, A):
+        # plots the graphon gray scale picture
         plt.figure(figsize=(6,6))
-        plt.imshow(1-self.A, cmap='gray', origin='lower')
+        plt.imshow(A, cmap='gray', origin='lower', extent=[0, 1, 0, 1])
         plt.colorbar(label='Coupling weight')
-        plt.title(title)
+        plt.title("Graphon adjacency matrix")
         plt.xlabel('j')
         plt.ylabel('i')
         plt.show()
+
